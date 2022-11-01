@@ -76,7 +76,7 @@ public @interface Transactional {
 ```
 
 > Spring `@Transactional` javadoc의 일부분 이다.
-> Rollback 전략은 custom한 전력이 없다면 기본적으로 RuntimeException과 Error에서 롤백 동작을 수행한다. Checked Exception은 예외다.
+> Rollback 전략은 custom한 전략이 없다면 기본적으로 RuntimeException과 Error에서 롤백 동작을 수행한다. Checked Exception은 예외다.
 
 ### Reference
 
