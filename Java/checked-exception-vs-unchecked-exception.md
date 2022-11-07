@@ -122,11 +122,6 @@ public class PersonController {
 
     private final PersonService personService;
 
-    @GetMapping("/person/{id}")
-    public Person getPerson(@PathVariable Long id) {
-        return personService.findPersonById(id);
-    }
-
     @PostMapping("/person")
     public Person registerPerson(@RequestBody Person person) throws Exception {
         return personService.registerPerson(person);
@@ -245,6 +240,12 @@ public class PersonService {
 
   - 유저 생성 요청을 보낼 때 로그에 insert query가 나간것을 확인 할 수 있고, h2-console에서 재 조회시 person이 조회 된다.
   - 즉, CheckedException 예외는 rollback 대상이 아니다.
+
+### 결론
+
+- CheckedException는 try~catch 구문 같은걸로 예외를 복구처리가 가능해서 rollback 대상이 아니다. 자주는 안 쓰이는듯..
+- CheckedException은 보통 더 구체적인 UncheckedException 예외를 던져서 로직을 끊어 낸다.
+- Spring `@Transactional` scope에서 발생한 UncheckedException 예외는 Rollback 처리 된다.
 
 ### Reference
 
