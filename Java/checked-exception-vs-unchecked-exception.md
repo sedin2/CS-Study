@@ -54,7 +54,9 @@
 | 트랜잭션 Rollback 여부 | Rollback 안됌             | Rollback 진행                                  |
 | 대표 Exception         | IOException, SQLException | NullPointerException, IllegalArgumentException |
 
-> 해당 표에서 얘기하는 트랜잭션 Rollback 여부에 대해 Spring에서 사용하는 `@Transactional`과 비교 해봤다.
+> 위에 표에서 얘기하는 트랜잭션 Rollback 여부에 대해 Spring에서 사용하는 `@Transactional`과 비교 해봤다.
+
+### **@Transactional** javadoc
 
 ```java
 /**
@@ -75,8 +77,174 @@ public @interface Transactional {
 }
 ```
 
-> Spring `@Transactional` javadoc의 일부분 이다.
-> Rollback 전략은 custom한 전략이 없다면 기본적으로 RuntimeException과 Error에서 롤백 동작을 수행한다. Checked Exception은 예외다.
+- 위에는 Spring `@Transactional` javadoc의 일부분 이다.
+- Rollback 전략은 custom한 전략이 없다면 기본적으로 RuntimeException과 Error에서 롤백 동작을 수행한다. Checked Exception은 예외다.
+
+### 코드로 직접 **Rollback** 테스트 해보기
+
+```bash
+# 패키지 구조
+├── person
+│   ├── Person
+│   ├── PersonController
+│   ├── PersonNotFoundException
+│   ├── PersonRepository
+│   └── PersonService
+└── CsStudyApplication
+```
+
+```java
+// Person.java
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Person {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    @Builder
+    private Person(Long id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+}
+```
+
+```java
+// PersonController.java
+@RestController
+@RequiredArgsConstructor
+public class PersonController {
+
+    private final PersonService personService;
+
+    @GetMapping("/person/{id}")
+    public Person getPerson(@PathVariable Long id) {
+        return personService.findPersonById(id);
+    }
+
+    @PostMapping("/person")
+    public Person registerPerson(@RequestBody Person person) throws Exception {
+        return personService.registerPerson(person);
+    }
+}
+```
+
+```java
+// PersonNotFoundException.java
+public class PersonNotFoundException extends RuntimeException {
+
+    public PersonNotFoundException(String message) {
+        super(message);
+    }
+}
+```
+
+```java
+// PersonRepository.java
+public interface PersonRepository extends JpaRepository<Person, Long> {
+
+}
+```
+
+```java
+// PersonService.java
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class PersonService {
+
+    private final PersonRepository personRepository;
+}
+```
+
+### **UncheckedException** (Rollback 여부 - O)
+
+- PersonService에 먼저 RuntimeException을 상속받은 PersonNotFoundException을 발생 시키는 registerPerson 메서드를 만듭니다.
+
+  - UncheckedException이기 때문에 Rollback 대상이다. 확인 해 보자
+
+  ```java
+  // PersonService.java
+    public Person registerPerson(Person person) {
+        personRepository.save(person);
+
+        throw new PersonNotFoundException("회원을 찾을 수 없음");
+    }
+  ```
+
+  - ![초기](./init_person.png)
+  - ![유저 생성](./create_person.png)
+
+  ```log
+  2022-11-07 20:13:20.965 DEBUG 9516 --- [nio-8080-exec-4] org.hibernate.SQL                        :
+    insert
+    into
+        person
+        (id, name)
+    values
+        (default, ?)
+  Hibernate:
+    insert
+    into
+        person
+        (id, name)
+    values
+        (default, ?)
+  2022-11-07 20:13:20.970 TRACE 9516 --- [nio-8080-exec-4] o.h.type.descriptor.sql.BasicBinder      : binding parameter [1] as [VARCHAR] - [sedin]
+  2022-11-07 20:13:21.012 ERROR 9516 --- [nio-8080-exec-4] o.a.c.c.C.[.[.[/].[dispatcherServlet]    : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed; nested exception is com.sedin.csstudy.person.PersonNotFoundException: 회원을 찾을 수 없음] with root cause
+  ```
+
+  - ![초기](./init_person.png)
+
+  - 유저 생성 요청을 보낼 때 로그에 insert query가 나간것을 확인 할 수 있고, h2-console에서 재 조회해도 person은 조회되지 않는다.
+  - 즉, UncheckedException 예외는 rollback 대상이다.
+
+### **CheckedException** (Rollback 여부 - X)
+
+- 다음으로 registerPerson 메서드를 수정해서 CheckedException 예외를 던져보자.
+
+  - CheckedException 예외는 Rollback 대상이 아니다. 확인 해 보자
+
+  ```java
+  // PersonService.java
+  public Person registerPerson(Person person) throws Exception {
+      personRepository.save(person);
+
+      throw new Exception();
+  }
+  ```
+
+  - ![초기](./init_person.png)
+  - ![유저 생성](./create_person.png)
+
+  ```log
+  2022-11-07 20:28:26.550 DEBUG 7396 --- [nio-8080-exec-2] org.hibernate.SQL                        :
+    insert
+    into
+        person
+        (id, name)
+    values
+        (default, ?)
+  Hibernate:
+    insert
+    into
+        person
+        (id, name)
+    values
+        (default, ?)
+  2022-11-07 20:28:26.559 TRACE 7396 --- [nio-8080-exec-2] o.h.type.descriptor.sql.BasicBinder      : binding parameter [1] as [VARCHAR] - [sedin]
+  2022-11-07 20:28:26.636 ERROR 7396 --- [nio-8080-exec-2] o.a.c.c.C.[.[.[/].[dispatcherServlet]    : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed; nested exception is java.lang.Exception] with root cause
+  ```
+
+  - ![유저 생성 요청 후 재 조회](./after-checked-exception-person.png)
+
+  - 유저 생성 요청을 보낼 때 로그에 insert query가 나간것을 확인 할 수 있고, h2-console에서 재 조회시 person이 조회 된다.
+  - 즉, CheckedException 예외는 rollback 대상이 아니다.
 
 ### Reference
 
