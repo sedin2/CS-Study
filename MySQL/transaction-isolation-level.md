@@ -1,7 +1,7 @@
 ### Transaction Isolation Level (트랜잭션 격리 수준)
 
-- [READ UNCOMMITTED](#READ UNCOMMITTED 격리수준)
-- [READ COMMITTED](#READ COMMITTED 격리수준)
+- [READ UNCOMMITTED](#read-uncommitted)
+- [READ COMMITTED](#read-committed)
 - REPEATABLE READ
 - SERIALIZABLE
 
@@ -73,7 +73,7 @@ SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;  # REPEATABLE READ
 SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;     # SERIALIZABLE
 ```
 
-### **READ UNCOMMITTED 격리수준**
+### **READ UNCOMMITTED**
 
 - 각 트랜잭션에서의 변경 내역이 COMMIT, ROLLBACK 여부에 상관없이 다른 트랜잭션에서 보여진다(**Dirty Read**).
 - 정합성에 문제가 많은 격리수준
@@ -138,7 +138,7 @@ COMMIT;
 
 5. **READ_UNCOMMITTED 격리 수준**은 트랜잭션이 시작되고 커밋되지 않은 데이터에 접근 가능하다.
 
-### **READ COMMITTED 격리수준**
+### **READ COMMITTED**
 
 - Oracle DBMS의 기본 격리수준
 - 온라인 서비스에서 가장 많이 선택되는 격리수준
