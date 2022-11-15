@@ -2,8 +2,8 @@
 
 - [READ UNCOMMITTED](#read-uncommitted)
 - [READ COMMITTED](#read-committed)
-- REPEATABLE READ
-- SERIALIZABLE
+- [REPEATABLE READ](#repeatable-read)
+- [SERIALIZABLE](#serializable)
 
 |                      | <center>DIRTY READ</center> | <center>NON - REPEATABLE READ</center> | <center>PHANTOM READ</center> |
 | :------------------- | :-------------------------: | :------------------------------------: | :---------------------------: |
@@ -169,7 +169,7 @@ mysql> SHOW VARIABLES LIKE 'transaction_isolation';
 # 1번 터미널
 START TRANSACTION;                                               # 1번 터미널 트랜잭션 시작
 
-mysql> select * from employees;                                  # 트랜잭션 시작 전 데이터 2건 확인
+mysql> select * from employees;                                  # 트랜잭션 시작 후 데이터 2건 확인
 +--------+------------+
 | emp_no | first_name |
 +--------+------------+
@@ -179,14 +179,14 @@ mysql> select * from employees;                                  # 트랜잭션 
 2 rows in set (0.00 sec)
 ```
 
-3. **먼저 1번 터미널에 띄워둔 MySQL서버의 트랜잭션을 시작** 해 줍니다.
-   1번 터미널에서 '**SELECT \* FROM employees**' 쿼리로 조회
+3. **2번 터미널에 띄워둔 MySQL서버의 트랜잭션을 시작** 해 줍니다.
+   2번 터미널에서 '**SELECT \* FROM employees**' 쿼리로 조회
 
 ```bash
 # 2번 터미널
 START TRANSACTION;                                               # 2번 터미널 트랜잭션 시작
 
-mysql> select * from employees;                                  # 트랜잭션 시작 전 데이터 2건 확인
+mysql> select * from employees;                                  # 트랜잭션 시작 후 데이터 2건 확인
 +--------+------------+
 | emp_no | first_name |
 +--------+------------+
@@ -206,7 +206,7 @@ UPDATE employees SET first_name="Toto" WHERE first_name="Lara";  # UPDATE 쿼리
 
 5. **2번 터미널**에서 **다시 조회** 하기
 
-- 1번 터미널의 트랜잭션이 끝나기 전에는 다른 트랜잭션에서 커밋돼지 않은 정보를 읽을 수 없다(**Dirty Read 발생 X**).
+- 1번 터미널의 트랜잭션이 끝나기 전에는 다른 트랜잭션에서 커밋돼지 않은 정보를 읽을 수 없다 (**Dirty Read 발생 X**)
 
 ```bash
 # 2번 터미널
@@ -253,3 +253,98 @@ Query OK, 0 rows affected (0.04 sec)
 ```
 
 9. **READ COMMITTED 격리수준**에선 **Dirty Read** 부정합은 발생하지 않지만, **NON-REPEATABLE READ** 부정합은 발생한다.
+
+### **REPEATABLE READ**
+
+- **MySQL InnoDB**의 기본 **격리수준**
+- 바이너리 로그를 가진 MySQL 장비에선 최소 **REPEATABLE READ** 격리수준 이상을 사용 해야 함
+- **"NON-REPEATABLE READ"** 부정합 발생 X
+- **InnoDB 스토리지 엔진**은 트랜잭션이 ROLLBACK될 가능성에 대비해 변경되기전 레코드를 **Undo 영역**에 백업 해두고,
+  실제 레코드 값을 변경한다 (**MVCC - Multi Version Concurrency Control**)
+- **Undo 영역에 백업된 데이터**는 InnoDB 스토리지 엔진이 필요없다고 판단되는 시점에 **주기적으로 삭제** (JVM GC와 비슷 한 듯)
+
+1. **READ UNCOMMITTED**격리수준 실습 때 띄어놓은 두 개의 터미널을 그대로 사용.
+   각 세션의 **Transaction Isolation Level**을 **REPEATABLE READ**로 변경 해준다.
+
+```bash
+# 1번, 2번 각 Terminal
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ; # READ_COMMITTED로 설정
+SHOW VARIABLES LIKE 'transaction_isolation';              # 격리수준 체크
+
+mysql> SHOW VARIABLES LIKE 'transaction_isolation';
++-----------------------+-----------------+
+| Variable_name         | Value           |
++-----------------------+-----------------+
+| transaction_isolation | REPEATABLE-READ |
++-----------------------+-----------------+
+1 row in set (0.00 sec)
+```
+
+2. **이번엔 2번 터미널에 띄워둔 MySQL서버의 트랜잭션을 먼저 시작** 해 줍니다.
+   2번 터미널에서 '**SELECT \* FROM employees WHERE emp_no=50000**' 쿼리로 조회
+
+```bash
+# 2번 터미널
+START TRANSACTION;                                               # 2번 터미널 트랜잭션 시작
+
+mysql> SELECT * FROM employees WHERE emp_no=50000;
++--------+------------+
+| emp_no | first_name |
++--------+------------+
+|  50000 | Lara       |
++--------+------------+
+1 row in set (0.00 sec)
+```
+
+3. **1번 터미널에 띄워둔 MySQL서버의 트랜잭션을 시작** 해 줍니다.
+   다시 **1번 터미널**에서 '**UPDATE employees SET first_name='Toto' WHERE emp_no=50000**' 쿼리를 실행 합니다.
+   그리고 **1번 터미널의 트랜잭션을 COMMIT**해 줍니다.
+
+```bash
+# 1번 터미널
+START TRANSACTION;                                                # 1번 터미널 트랜잭션 시작
+UPDATE employees SET first_name='Toto' WHERE emp_no=50000;        # UPDATE 쿼리 실행
+COMMIT;                                                           # 1번 터미널 트랜잭션 커밋
+```
+
+4. **2번 터미널**에서 **다시 조회** 하기 ('**SELECT \* FROM employees WHERE emp_no=50000**' 쿼리 실행)
+
+- 1번 터미널의 트랜잭션이 끝났지만, 2번 터미널에서 재 조회시 처음 조회했던 결과를 그대로 얻는다 (**NON-REPEATABLE READ 부정합 발생 X**)
+
+```bash
+# 2번 터미널
+mysql> SELECT * FROM employees WHERE emp_no=50000;
++--------+------------+
+| emp_no | first_name |
++--------+------------+
+|  50000 | Lara       |
++--------+------------+
+1 row in set (0.00 sec)
+```
+
+5. **2번 터미널 트랜잭션 COMMIT**하기
+
+```bash
+# 2번 터미널
+mysql> COMMIT;                        # 2번 터미널 트랜잭션 COMMIT
+Query OK, 0 rows affected (0.04 sec)
+```
+
+6. **2번 터미널 COMMIT 후 다시 조회** 하기
+
+- 이제 1번 트랜잭션의 결과가 반영된 수정된 레코드 값이 보인다.
+
+```bash
+# 2번 터미널
+mysql> SELECT * FROM employees WHERE emp_no=50000;
++--------+------------+
+| emp_no | first_name |
++--------+------------+
+|  50000 | Toto       |
++--------+------------+
+1 row in set (0.00 sec)
+```
+
+7. **REPEATABLE READ 격리수준**에선 **Dirty Read** 부정합과 **NON-REPEATABLE READ** 부정합은 발생하지 않는다.
+
+### **SERIALIZABLE**
