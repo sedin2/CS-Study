@@ -1,5 +1,6 @@
 ### Transaction Isolation Level (트랜잭션 격리 수준)
 
+- [MySQL 실습환경 세팅](#mysql-%EC%8B%A4%EC%8A%B5)
 - [READ UNCOMMITTED](#read-uncommitted)
 - [READ COMMITTED](#read-committed)
 - [REPEATABLE READ](#repeatable-read)
@@ -79,6 +80,8 @@ SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;     # SERIALIZABLE
 - 정합성에 문제가 많은 격리수준
 - 권장 x
 
+![READ UNCOMMITTED](./read_uncommitted.jpg)
+
 1. 터미널을 두개 띄워서 각 세션의 **Transaction Isolation Level**을 **READ UNCOMMITTED**로 변경 해준다.
 
 ```bash
@@ -144,6 +147,8 @@ COMMIT;
 - 온라인 서비스에서 가장 많이 선택되는 격리수준
 - **Dirty Read**는 발생하지 않음
 - 하지만 **READ COMMITTED** 격리수준에서도 **NON-REPEATABLE READ** 부정합 문제가 있음
+
+![READ COMMITTED](./read_committed.jpg)
 
 1. **READ UNCOMMITTED**격리수준 실습 때 띄어놓은 두 개의 터미널을 그대로 사용.
    각 세션의 **Transaction Isolation Level**을 **READ COMMITTED**로 변경 해준다.
@@ -262,6 +267,9 @@ Query OK, 0 rows affected (0.04 sec)
 - **InnoDB 스토리지 엔진**은 트랜잭션이 ROLLBACK될 가능성에 대비해 변경되기전 레코드를 **Undo 영역**에 백업 해두고,
   실제 레코드 값을 변경한다 (**MVCC - Multi Version Concurrency Control**)
 - **Undo 영역에 백업된 데이터**는 InnoDB 스토리지 엔진이 필요없다고 판단되는 시점에 **주기적으로 삭제** (JVM GC와 비슷 한 듯)
+
+![REPEATABLE READ POINT](./repeatable_read_point.jpg)
+![REPEATABLE READ FLOW](./repeatable_read_flow.jpg)
 
 1. **READ UNCOMMITTED**격리수준 실습 때 띄어놓은 두 개의 터미널을 그대로 사용.
    각 세션의 **Transaction Isolation Level**을 **REPEATABLE READ**로 변경 해준다.
