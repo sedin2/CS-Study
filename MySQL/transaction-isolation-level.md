@@ -356,3 +356,10 @@ mysql> SELECT * FROM employees WHERE emp_no=50000;
 7. **REPEATABLE READ 격리수준**에선 **Dirty Read** 부정합과 **NON-REPEATABLE READ** 부정합은 발생하지 않는다.
 
 ### **SERIALIZABLE**
+
+- 가장 단순한 격리수준이지만 **가장 엄격한 격리수준**
+- 간단한 SELECT 쿼리와 같은 읽기 작업에서 조차도 읽기 잠금을 획득해야함 (동시성 ↓, 데이터 격리성 ↑)
+- PHANTOM READ 발생 X
+
+![SERIALIZABLE POINT](./serializable_point.jpg)
+![SERIALIZABLE FLOW](./serializable_flow.jpg)
